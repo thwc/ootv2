@@ -268,3 +268,10 @@ function applyRemoteState(newState) {
 // Khởi tạo
 initBoardSetup();
 render();
+
+// Expose các biến và hàm cần thiết ra window để multiplayer.js có thể gọi
+window.gameState = gameState;
+window.setPlayerRole = setPlayerRole;
+window.applyRemoteState = applyRemoteState;
+window.initBoardSetup = initBoardSetup;
+window.render = render;

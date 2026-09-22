@@ -1,96 +1,95 @@
 /**
- * js/multiplayer.js - Bản tối ưu tốc độ phản hồi
+ * js/multiplayer.js - Chuẩn hóa API playhtml
  */
 import { playhtml } from "https://esm.sh/playhtml@latest";
 
-// Lấy mã phòng từ URL hoặc fallback về phòng mặc định
+// Lấy mã phòng từ URL hoặc mặc định
 function getRoomId() {
   const urlParams = new URLSearchParams(window.location.search);
-  const room = urlParams.get('room');
-  if (room) {
-    const inputEl = document.getElementById('room-id');
-    if (inputEl) inputEl.value = room;
-    return room;
-  }
-  return 'ott-phong-1';
+  return urlParams.get('room') || 'ottv2-room-1';
 }
 
-const activeRoom = getRoomId();
+const currentRoom = getRoomId();
+const roomInput = document.getElementById('room-id');
+if (roomInput) roomInput.value = currentRoom;
 
-// 1. Đăng ký thuộc tính can-sync-game
+let syncHandler = null;
+
+// 1. Đăng ký custom tag TRƯỚC KHI init
 playhtml.custom('can-sync-game', {
   defaultData: {
-    syncState: gameState
+    syncState: null
   },
-
   updateElement: (element, data) => {
-    // Khi nhận được dữ liệu (kể cả lúc vừa vào phòng)
-    const msgEl = document.getElementById('game-message');
-    
-    if (data && data.syncState) {
-      applyRemoteState(data.syncState);
+    // Lưu lại handler để chủ động gọi setData khi máy này đi nước cờ
+    syncHandler = element;
+
+    if (data && data.syncState && typeof window.applyRemoteState === 'function') {
+      console.log("[Multiplayer] Nhận state mới:", data.syncState);
+      window.applyRemoteState(data.syncState);
     }
 
-    // Đổi ngay thông báo nếu đang bị kẹt chữ "Đang kết nối..."
+    const msgEl = document.getElementById('game-message');
     if (msgEl && msgEl.textContent.includes('Đang kết nối')) {
-      msgEl.textContent = 'Đã kết nối phòng thành công!';
+      msgEl.textContent = 'Kết nối thành công! Sẵn sàng chơi.';
     }
   }
 });
 
-// 2. Khởi tạo kết nối với Room
-try {
-  playhtml.init({
-    room: activeRoom
-  });
-  
-  // Thông báo sẵn sàng
-  setTimeout(() => {
-    const msgEl = document.getElementById('game-message');
-    if (msgEl && msgEl.textContent.includes('Đang kết nối')) {
-      msgEl.textContent = 'Phòng đã sẵn sàng. Hãy chọn quân để đi!';
-    }
-  }, 1000);
-} catch (err) {
-  console.error("Lỗi kết nối playhtml:", err);
-  document.getElementById('game-message').textContent = 'Lỗi kết nối server, vui lòng thử lại.';
+// 2. Khởi tạo playhtml
+playhtml.init({
+  room: currentRoom
+});
+
+// 3. Hàm gửi dữ liệu lên server playhtml
+function broadcastState(state) {
+  const el = syncHandler || document.getElementById('board-sync-container');
+  if (el && typeof el.setData === 'function') {
+    el.setData({ syncState: state });
+    console.log("[Multiplayer] Đã gửi state lên phòng:", currentRoom);
+  } else {
+    console.warn("[Multiplayer] Chưa sẵn sàng setData, thử lại sau 100ms...");
+    setTimeout(() => {
+      if (el && typeof el.setData === 'function') {
+        el.setData({ syncState: state });
+      }
+    }, 100);
+  }
 }
 
-// 3. Đẩy state khi có nước đi
+// 4. Lắng nghe nước đi từ game.js
 window.addEventListener('ott:state-changed', (e) => {
-  const syncContainer = document.getElementById('board-sync-container');
-  if (syncContainer && typeof syncContainer.setData === 'function') {
-    syncContainer.setData({
-      syncState: e.detail
-    });
-  }
+  broadcastState(e.detail);
 });
 
-// 4. Đồng bộ nút Reset bàn cờ
+// 5. Nút chơi ván mới
 document.getElementById('btn-restart').addEventListener('click', () => {
-  initBoardSetup();
-  render();
-  const syncContainer = document.getElementById('board-sync-container');
-  if (syncContainer && typeof syncContainer.setData === 'function') {
-    syncContainer.setData({
-      syncState: gameState
-    });
+  if (typeof window.initBoardSetup === 'function' && typeof window.render === 'function') {
+    window.initBoardSetup();
+    window.render();
+    broadcastState(window.gameState);
   }
 });
 
-// 5. Điều khiển vai trò (Role Select)
+// 6. Xử lý phân vai
 const roleSelect = document.getElementById('role-select');
-roleSelect.addEventListener('change', (e) => {
-  setPlayerRole(e.target.value);
-});
-setPlayerRole(roleSelect.value);
+if (roleSelect) {
+  roleSelect.addEventListener('change', (e) => {
+    if (typeof window.setPlayerRole === 'function') {
+      window.setPlayerRole(e.target.value);
+    }
+  });
+  if (typeof window.setPlayerRole === 'function') {
+    window.setPlayerRole(roleSelect.value);
+  }
+}
 
-// 6. Xử lý nút Chuyển phòng
+// 7. Xử lý đổi phòng
 document.getElementById('btn-join-room').addEventListener('click', () => {
-  const roomInput = document.getElementById('room-id').value.trim();
-  if (roomInput) {
-    const nextUrl = new URL(window.location.href);
-    nextUrl.searchParams.set('room', roomInput);
-    window.location.href = nextUrl.toString();
+  const newRoom = document.getElementById('room-id').value.trim();
+  if (newRoom) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('room', newRoom);
+    window.location.href = url.toString();
   }
 });
