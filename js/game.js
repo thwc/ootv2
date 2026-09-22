@@ -140,6 +140,7 @@ function checkWinCondition() {
 
 // Xử lý di chuyển và báo ra cho multiplayer biết
 function executeMove(fromR, fromC, toR, toC) {
+  // 1. Cập nhật state cục bộ ngay lập tức
   gameState.board[toR][toC] = gameState.board[fromR][fromC];
   gameState.board[fromR][fromC] = null;
   localUI.selectedSquare = null;
@@ -151,9 +152,10 @@ function executeMove(fromR, fromC, toR, toC) {
     gameState.turn = gameState.turn === 'p1' ? 'p2' : 'p1';
   }
 
+  // 2. Vẽ lại màn hình người đi NGAY LẬP TỨC (không chờ mạng)
   render();
 
-  // Bắn sự kiện ra ngoài để multiplayer.js bắt và gửi lên mạng
+  // 3. Đẩy dữ liệu sang cho đối phương sau
   window.dispatchEvent(new CustomEvent('ott:state-changed', { detail: gameState }));
 }
 
