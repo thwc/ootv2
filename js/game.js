@@ -1,77 +1,61 @@
 /**
  * Game Core Logic - OTTv2
- * Bàn cờ 9x9 (Hàng: 0 -> 8, Cột: 0 -> 8 tương ứng a-i và 1-9)
- * Ô [0,0] là a1, ô [8,8] là i9
  */
-
 const BOARD_SIZE = 9;
 const COLS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'];
+const PIECE_ICONS = { rock: '✊', paper: '✋', scissors: '✌️' };
 
-// Ký hiệu icon quân cờ
-const PIECE_ICONS = {
-  rock: '✊',
-  paper: '✋',
-  scissors: '✌️'
-};
+// Vai trò của tab hiện tại: 'p1' | 'p2' | 'spectator' (mặc định)
+let myRole = 'p1'; 
 
-// State tổng của ván cờ
-const gameState = {
+// Hàm thiết lập vai trò từ giao diện
+function setPlayerRole(role) {
+  myRole = role;
+  const msgEl = document.getElementById('game-message');
+  if (myRole === 'spectator') {
+    msgEl.textContent = 'Bạn đang xem với tư cách Khán giả.';
+  } else {
+    msgEl.textContent = `Bạn đang điều khiển: ${myRole === 'p1' ? 'Người chơi 1 (Đỏ)' : 'Người chơi 2 (Xanh)'}`;
+  }
+}
+
+// Đối tượng State có thể JSON.stringify để gửi qua mạng
+let gameState = {
   board: Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(null)),
-  turn: 'p1', // 'p1' (Người chơi 1) hoặc 'p2' (Người chơi 2)
-  selectedSquare: null, // { r, c }
-  validMoves: [], // Danh sách các ô có thể đi tới: [{ r, c, isAttack }]
-  status: 'playing', // 'playing' | 'gameover'
+  turn: 'p1',
+  status: 'playing',
   winner: null,
   winReason: ''
 };
 
-// Khởi tạo bàn cờ ban đầu:
-// P1 dàn quân ở hàng 0 và 1 (quanh ô a1)
-// P2 dàn quân ở hàng 7 và 8 (quanh ô i9)
+// State cục bộ chỉ phục vụ hiển thị click trên máy hiện tại
+let localUI = {
+  selectedSquare: null,
+  validMoves: []
+};
+
+function createInitialBoard() {
+  const board = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(null));
+  const p1Pieces = ['rock', 'paper', 'scissors', 'scissors', 'rock', 'paper', 'paper', 'scissors', 'rock'];
+  for (let c = 0; c < 5; c++) board[0][c] = { player: 'p1', type: p1Pieces[c] };
+  for (let c = 0; c < 4; c++) board[1][c] = { player: 'p1', type: p1Pieces[5 + c] };
+
+  const p2Pieces = ['rock', 'scissors', 'paper', 'paper', 'rock', 'scissors', 'scissors', 'paper', 'rock'];
+  for (let c = 4; c < 9; c++) board[8][c] = { player: 'p2', type: p2Pieces[c - 4] };
+  for (let c = 5; c < 9; c++) board[7][c] = { player: 'p2', type: p2Pieces[5 + (c - 5)] };
+  return board;
+}
+
 function initBoardSetup() {
-  gameState.board = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(null));
-
-  // Quân P1: 3 Đấm, 3 Lá, 3 Kéo
-  const p1Pieces = [
-    'rock', 'paper', 'scissors',
-    'scissors', 'rock', 'paper',
-    'paper', 'scissors', 'rock'
-  ];
-
-  // Hàng 0: 5 ô đầu tiên
-  for (let c = 0; c < 5; c++) {
-    gameState.board[0][c] = { player: 'p1', type: p1Pieces[c] };
-  }
-  // Hàng 1: 4 ô đầu tiên
-  for (let c = 0; c < 4; c++) {
-    gameState.board[1][c] = { player: 'p1', type: p1Pieces[5 + c] };
-  }
-
-  // Quân P2: 3 Đấm, 3 Lá, 3 Kéo
-  const p2Pieces = [
-    'rock', 'scissors', 'paper',
-    'paper', 'rock', 'scissors',
-    'scissors', 'paper', 'rock'
-  ];
-
-  // Hàng 8: 5 ô cuối cùng
-  for (let c = 4; c < 9; c++) {
-    gameState.board[8][c] = { player: 'p2', type: p2Pieces[c - 4] };
-  }
-  // Hàng 7: 4 ô cuối cùng
-  for (let c = 5; c < 9; c++) {
-    gameState.board[7][c] = { player: 'p2', type: p2Pieces[5 + (c - 5)] };
-  }
-
+  gameState.board = createInitialBoard();
   gameState.turn = 'p1';
-  gameState.selectedSquare = null;
-  gameState.validMoves = [];
   gameState.status = 'playing';
   gameState.winner = null;
   gameState.winReason = '';
+  localUI.selectedSquare = null;
+  localUI.validMoves = [];
 }
 
-// Logic ăn quân theo luật Oẳn Tù Tì
 function canCapture(attackerType, defenderType) {
   if (attackerType === 'rock' && defenderType === 'scissors') return true;
   if (attackerType === 'scissors' && defenderType === 'paper') return true;
@@ -79,7 +63,6 @@ function canCapture(attackerType, defenderType) {
   return false;
 }
 
-// Tính toán các nước đi hợp lệ cho 1 quân cờ (8 hướng)
 function getValidMoves(r, c) {
   const currentPiece = gameState.board[r][c];
   if (!currentPiece) return [];
@@ -94,150 +77,125 @@ function getValidMoves(r, c) {
   for (const [dr, dc] of directions) {
     const nr = r + dr;
     const nc = c + dc;
-
-    // Kiểm tra nằm trong phạm vi bàn cờ 9x9
     if (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE) {
-      const targetPiece = gameState.board[nr][nc];
-
-      if (!targetPiece) {
-        // Ô trống: Di chuyển tự do
+      const target = gameState.board[nr][nc];
+      if (!target) {
         moves.push({ r: nr, c: nc, isAttack: false });
-      } else if (targetPiece.player === currentPiece.player) {
-        // Cùng quân ta: Chặn đường, không đi được
+      } else if (target.player === currentPiece.player) {
         continue;
       } else {
-        // Quân đối phương
-        if (targetPiece.type === currentPiece.type) {
-          // Cùng loại: Chặn nhau, không ăn được
-          continue;
-        } else if (canCapture(currentPiece.type, targetPiece.type)) {
-          // Khác loại và khắc chế: Được phép ăn quân
+        if (target.type === currentPiece.type) {
+          continue; // Cùng loại chặn nhau
+        } else if (canCapture(currentPiece.type, target.type)) {
           moves.push({ r: nr, c: nc, isAttack: true });
         }
       }
     }
   }
-
   return moves;
 }
 
-// Đếm số lượng quân của mỗi bên
 function getPieceCounts() {
   const counts = {
-    p1: { rock: 0, paper: 0, scissors: 0, total: 0 },
-    p2: { rock: 0, paper: 0, scissors: 0, total: 0 }
+    p1: { rock: 0, paper: 0, scissors: 0 },
+    p2: { rock: 0, paper: 0, scissors: 0 }
   };
-
   for (let r = 0; r < BOARD_SIZE; r++) {
     for (let c = 0; c < BOARD_SIZE; c++) {
-      const piece = gameState.board[r][c];
-      if (piece) {
-        counts[piece.player][piece.type]++;
-        counts[piece.player].total++;
-      }
+      const p = gameState.board[r][c];
+      if (p) counts[p.player][p.type]++;
     }
   }
   return counts;
 }
 
-// Kiểm tra 2 điều kiện thắng
 function checkWinCondition() {
-  // 1. Kiểm tra đưa quân vào ô căn cứ
-  // Ô a1 tương ứng với [0][0]
-  const a1Piece = gameState.board[0][0];
-  if (a1Piece && a1Piece.player === 'p2') {
+  if (gameState.board[0][0] && gameState.board[0][0].player === 'p2') {
     gameState.status = 'gameover';
     gameState.winner = 'p2';
-    gameState.winReason = 'Người chơi 2 đã đưa quân vào căn cứ a1!';
+    gameState.winReason = 'Người chơi 2 đã chiếm ô căn cứ a1!';
     return;
   }
-
-  // Ô i9 tương ứng với [8][8]
-  const i9Piece = gameState.board[8][8];
-  if (i9Piece && i9Piece.player === 'p1') {
+  if (gameState.board[8][8] && gameState.board[8][8].player === 'p1') {
     gameState.status = 'gameover';
     gameState.winner = 'p1';
-    gameState.winReason = 'Người chơi 1 đã đưa quân vào căn cứ i9!';
+    gameState.winReason = 'Người chơi 1 đã chiếm ô căn cứ i9!';
     return;
   }
 
-  // 2. Kiểm tra ăn sạch 1 loại quân của đối phương
   const counts = getPieceCounts();
-
-  // Kiểm tra P2 bị tuyệt chủng loại quân nào không (P1 thắng)
   if (counts.p2.rock === 0 || counts.p2.paper === 0 || counts.p2.scissors === 0) {
     gameState.status = 'gameover';
     gameState.winner = 'p1';
-    gameState.winReason = 'Người chơi 1 thắng vì đối phương đã bị tiêu diệt sạch 1 loại quân!';
+    gameState.winReason = 'Người chơi 1 thắng: P2 bị diệt sạch 1 loại quân!';
     return;
   }
-
-  // Kiểm tra P1 bị tuyệt chủng loại quân nào không (P2 thắng)
   if (counts.p1.rock === 0 || counts.p1.paper === 0 || counts.p1.scissors === 0) {
     gameState.status = 'gameover';
     gameState.winner = 'p2';
-    gameState.winReason = 'Người chơi 2 thắng vì đối phương đã bị tiêu diệt sạch 1 loại quân!';
+    gameState.winReason = 'Người chơi 2 thắng: P1 bị diệt sạch 1 loại quân!';
     return;
   }
 }
 
-// Thực thi nước đi từ (fromR, fromC) tới (toR, toC)
+// Xử lý di chuyển và báo ra cho multiplayer biết
 function executeMove(fromR, fromC, toR, toC) {
-  const movingPiece = gameState.board[fromR][fromC];
-  gameState.board[toR][toC] = movingPiece;
+  gameState.board[toR][toC] = gameState.board[fromR][fromC];
   gameState.board[fromR][fromC] = null;
+  localUI.selectedSquare = null;
+  localUI.validMoves = [];
 
-  // Xóa chọn ô
-  gameState.selectedSquare = null;
-  gameState.validMoves = [];
-
-  // Kiểm tra thắng thua
   checkWinCondition();
 
-  // Đổi lượt nếu game chưa kết thúc
   if (gameState.status === 'playing') {
     gameState.turn = gameState.turn === 'p1' ? 'p2' : 'p1';
   }
 
   render();
+
+  // Bắn sự kiện ra ngoài để multiplayer.js bắt và gửi lên mạng
+  window.dispatchEvent(new CustomEvent('ott:state-changed', { detail: gameState }));
 }
 
-// Xử lý khi click vào 1 ô trên bàn cờ
 function onCellClick(r, c) {
   if (gameState.status === 'gameover') return;
 
+  // Ràng buộc Online: Không phải lượt của bạn hoặc bạn là Spectator thì không được đi
+  if (myRole !== 'spectator' && gameState.turn !== myRole) {
+    const msgEl = document.getElementById('game-message');
+    msgEl.textContent = 'Chưa đến lượt của bạn!';
+    return;
+  }
+
   const clickedPiece = gameState.board[r][c];
 
-  // Nếu đang có ô được chọn
-  if (gameState.selectedSquare) {
-    const isMoveTarget = gameState.validMoves.find(m => m.r === r && m.c === c);
-
-    if (isMoveTarget) {
-      // Thực hiện nước đi
-      executeMove(gameState.selectedSquare.r, gameState.selectedSquare.c, r, c);
+  if (localUI.selectedSquare) {
+    const isTarget = localUI.validMoves.find(m => m.r === r && m.c === c);
+    if (isTarget) {
+      executeMove(localUI.selectedSquare.r, localUI.selectedSquare.c, r, c);
       return;
     }
-
-    // Nếu bấm lại vào chính quân đó -> Hủy chọn
-    if (gameState.selectedSquare.r === r && gameState.selectedSquare.c === c) {
-      gameState.selectedSquare = null;
-      gameState.validMoves = [];
+    if (localUI.selectedSquare.r === r && localUI.selectedSquare.c === c) {
+      localUI.selectedSquare = null;
+      localUI.validMoves = [];
       render();
       return;
     }
   }
 
-  // Chọn quân mới (phải là quân của người đang đến lượt)
   if (clickedPiece && clickedPiece.player === gameState.turn) {
-    gameState.selectedSquare = { r, c };
-    gameState.validMoves = getValidMoves(r, c);
+    // Nếu có vai trò cụ thể, chỉ được chọn quân của phe mình
+    if (myRole !== 'spectator' && clickedPiece.player !== myRole) return;
+
+    localUI.selectedSquare = { r, c };
+    localUI.validMoves = getValidMoves(r, c);
     render();
   }
 }
 
-// Render toàn bộ giao diện dựa trên State
 function render() {
   const boardEl = document.getElementById('board');
+  if (!boardEl) return;
   boardEl.innerHTML = '';
 
   for (let r = 0; r < BOARD_SIZE; r++) {
@@ -245,28 +203,23 @@ function render() {
       const cell = document.createElement('div');
       cell.classList.add('cell');
 
-      // Đánh dấu ô đặc biệt
       if (r === 0 && c === 0) cell.classList.add('base-a1');
       if (r === 8 && c === 8) cell.classList.add('base-i9');
 
-      // Tọa độ cờ (a1, i9...)
       const coordSpan = document.createElement('span');
       coordSpan.className = 'cell-coord';
       coordSpan.textContent = `${COLS[c]}${r + 1}`;
       cell.appendChild(coordSpan);
 
-      // Highlight ô đang chọn
-      if (gameState.selectedSquare && gameState.selectedSquare.r === r && gameState.selectedSquare.c === c) {
+      if (localUI.selectedSquare && localUI.selectedSquare.r === r && localUI.selectedSquare.c === c) {
         cell.classList.add('selected');
       }
 
-      // Highlight nước đi hợp lệ
-      const moveOpt = gameState.validMoves.find(m => m.r === r && m.c === c);
+      const moveOpt = localUI.validMoves.find(m => m.r === r && m.c === c);
       if (moveOpt) {
         cell.classList.add(moveOpt.isAttack ? 'valid-attack' : 'valid-move');
       }
 
-      // Vẽ quân cờ nếu có
       const piece = gameState.board[r][c];
       if (piece) {
         const pieceEl = document.createElement('div');
@@ -280,7 +233,6 @@ function render() {
     }
   }
 
-  // Cập nhật thông tin UI
   const counts = getPieceCounts();
   document.getElementById('p1-rock').textContent = counts.p1.rock;
   document.getElementById('p1-paper').textContent = counts.p1.paper;
@@ -294,21 +246,23 @@ function render() {
   const msgEl = document.getElementById('game-message');
 
   if (gameState.status === 'gameover') {
-    turnEl.innerHTML = `<strong>KẾT THÚC TRẬN ĐẤU</strong>`;
+    turnEl.innerHTML = `<strong>KẾT THÚC</strong>`;
     msgEl.innerHTML = `<span style="color: #dc2626;">🏆 ${gameState.winReason}</span>`;
   } else {
     const turnText = gameState.turn === 'p1' ? 'Người chơi 1 (Đỏ)' : 'Người chơi 2 (Xanh)';
     turnEl.innerHTML = `Lượt chơi: <strong>${turnText}</strong>`;
-    msgEl.textContent = gameState.selectedSquare ? 'Chọn ô đến để di chuyển hoặc ăn quân' : 'Chọn một quân cờ để đi';
   }
 }
 
-// Nút chơi lại
-document.getElementById('btn-restart').addEventListener('click', () => {
-  initBoardSetup();
+// Hàm nhận State mới từ mạng và nạp vào game
+function applyRemoteState(newState) {
+  if (!newState || !newState.board) return;
+  gameState = JSON.parse(JSON.stringify(newState));
+  localUI.selectedSquare = null;
+  localUI.validMoves = [];
   render();
-});
+}
 
-// Khởi chạy khi load trang
+// Khởi tạo
 initBoardSetup();
 render();

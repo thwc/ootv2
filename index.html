@@ -3,24 +3,45 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Oẳn Tù Tì v2 (OTTv2) - Local 2 Players</title>
+  <title>Oẳn Tù Tì v2 (OTTv2) - Multiplayer</title>
   <link rel="stylesheet" href="css/style.css">
+  
+  <!-- Nhúng thư viện playhtml từ CDN -->
+  <script type="module" src="https://unpkg.com/playhtml@latest"></script>
 </head>
 <body>
   <div class="game-container">
     <header>
-      <h1>Oẳn Tù Tì v2 (OTTv2)</h1>
-      <p class="subtitle">Bàn cờ 9×9 • Di chuyển 8 hướng • Đấm - Lá - Kéo</p>
+      <h1>Oẳn Tù Tì v2 (OTTv2) - Online Multiplayer</h1>
+      <p class="subtitle">Bàn cờ 9×9 • Di chuyển 8 hướng • Đồng bộ thời gian thực</p>
     </header>
+
+    <!-- Thanh cấu hình phòng & phân vai -->
+    <div class="online-bar">
+      <div class="room-box">
+        <label for="room-id">Mã phòng:</label>
+        <input type="text" id="room-id" value="phong-ott-1" placeholder="Nhập tên phòng...">
+        <button id="btn-join-room">Vào phòng</button>
+      </div>
+
+      <div class="role-box">
+        <span>Bạn đang đóng vai:</span>
+        <select id="role-select">
+          <option value="spectator">Khán giả (Chỉ xem)</option>
+          <option value="p1">Người chơi 1 (Đỏ - a1)</option>
+          <option value="p2">Người chơi 2 (Xanh - i9)</option>
+        </select>
+      </div>
+    </div>
 
     <div class="game-status-card">
       <div id="status-turn" class="turn-indicator">Lượt chơi: <strong>Người chơi 1 (Đỏ)</strong></div>
-      <div id="game-message" class="game-message">Chọn một quân cờ để bắt đầu!</div>
+      <div id="game-message" class="game-message">Đang kết nối vào phòng...</div>
       <button id="btn-restart" class="btn-restart">Chơi ván mới</button>
     </div>
 
     <div class="main-layout">
-      <!-- Bảng thông tin người chơi 1 -->
+      <!-- Bảng thông tin P1 -->
       <aside class="player-panel panel-p1">
         <h3>Người chơi 1 (Đỏ)</h3>
         <p class="base-info">Mục tiêu: Đưa quân tới <strong>i9</strong></p>
@@ -31,12 +52,15 @@
         </div>
       </aside>
 
-      <!-- Khung bàn cờ 9x9 -->
+      <!-- Khung bàn cờ mang thẻ đồng bộ playhtml -->
       <div class="board-wrapper">
-        <div id="board" class="board"></div>
+        <!-- can-sync-game là thuộc tính tùy biến mà multiplayer.js sẽ đăng ký với playhtml -->
+        <div id="board-sync-container" can-sync-game>
+          <div id="board" class="board"></div>
+        </div>
       </div>
 
-      <!-- Bảng thông tin người chơi 2 -->
+      <!-- Bảng thông tin P2 -->
       <aside class="player-panel panel-p2">
         <h3>Người chơi 2 (Xanh)</h3>
         <p class="base-info">Mục tiêu: Đưa quân tới <strong>a1</strong></p>
@@ -49,6 +73,8 @@
     </div>
   </div>
 
+  <!-- Nạp logic game trước, sau đó nạp module đồng bộ multiplayer -->
   <script src="js/game.js"></script>
+  <script type="module" src="js/multiplayer.js"></script>
 </body>
 </html>
