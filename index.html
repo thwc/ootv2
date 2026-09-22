@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Oẳn Tù Tì v2 (OTTv2) - Local 2 Players</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="game-container">
+    <header>
+      <h1>Oẳn Tù Tì v2 (OTTv2)</h1>
+      <p class="subtitle">Bàn cờ 9×9 • Di chuyển 8 hướng • Đấm - Lá - Kéo</p>
+    </header>
+
+    <div class="game-status-card">
+      <div id="status-turn" class="turn-indicator">Lượt chơi: <strong>Người chơi 1 (Đỏ)</strong></div>
+      <div id="game-message" class="game-message">Chọn một quân cờ để bắt đầu!</div>
+      <button id="btn-restart" class="btn-restart">Chơi ván mới</button>
+    </div>
+
+    <div class="main-layout">
+      <!-- Bảng thông tin người chơi 1 -->
+      <aside class="player-panel panel-p1">
+        <h3>Người chơi 1 (Đỏ)</h3>
+        <p class="base-info">Mục tiêu: Đưa quân tới <strong>i9</strong></p>
+        <div class="counter-box">
+          <div>✊ Đấm: <span id="p1-rock">0</span></div>
+          <div>✋ Lá: <span id="p1-paper">0</span></div>
+          <div>✌️ Kéo: <span id="p1-scissors">0</span></div>
+        </div>
+      </aside>
+
+      <!-- Khung bàn cờ 9x9 -->
+      <div class="board-wrapper">
+        <div id="board" class="board"></div>
+      </div>
+
+      <!-- Bảng thông tin người chơi 2 -->
+      <aside class="player-panel panel-p2">
+        <h3>Người chơi 2 (Xanh)</h3>
+        <p class="base-info">Mục tiêu: Đưa quân tới <strong>a1</strong></p>
+        <div class="counter-box">
+          <div>✊ Đấm: <span id="p2-rock">0</span></div>
+          <div>✋ Lá: <span id="p2-paper">0</span></div>
+          <div>✌️ Kéo: <span id="p2-scissors">0</span></div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script src="js/game.js"></script>
+</body>
+</html>
